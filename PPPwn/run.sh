@@ -13,8 +13,6 @@ if [ -z $DTLINK ]; then DTLINK=false; fi
 if [ -z $PPDBG ]; then PPDBG=false; fi
 if [ -z $TIMEOUT ]; then TIMEOUT="5m"; fi
 if [ -z $RESTMODE ]; then RESTMODE=false; fi
-echo '1-1' | sudo tee /sys/bus/usb/drivers/usb/unbind 
-echo '1-1' | sudo tee /sys/bus/usb/drivers/usb/bind
 PITYP=$(tr -d '\0' </proc/device-tree/model) 
 if [[ $PITYP == *"Raspberry Pi 2"* ]] ;then
 coproc read -t 15 && wait "$!" || true
@@ -61,10 +59,8 @@ echo -e "\n\n\033[36m _____  _____  _____
 sudo systemctl stop pppoe
 sudo systemctl stop dtlink
 if [ $USBETHERNET = true ] ; then
-    echo '1-1' | sudo tee /sys/bus/usb/drivers/usb/unbind
-    coproc read -t 2 && wait "$!" || true
-    echo '1-1' | sudo tee /sys/bus/usb/drivers/usb/bind
-    coproc read -t 5 && wait "$!" || true
+    sudo bash /boot/firmware/PPPwn/devboot.sh
+    coproc read -t 3 && wait "$!" || true
     sudo ip link set $INTERFACE up
 else
     sudo ip link set $INTERFACE down
@@ -74,14 +70,26 @@ fi
 echo -e "\n\033[36m$PITYP\033[92m\nFirmware:\033[93m $FIRMWAREVERSION\033[92m\nInterface:\033[93m $INTERFACE\033[0m" | sudo tee /dev/tty1
 echo -e "\033[92mPPPwn:\033[93m C++ $CPPBIN \033[0m" | sudo tee /dev/tty1
 if [ $VMUSB = true ] ; then
-    UDEV=$(sudo blkid | grep '^/dev/sd' | cut -f1 -d':')
-    if [[ -z $UDEV ]] ;then
-        UDEV="/media/PPPwn/pwndev"
-        echo -e "\033[92mVirtual Drive:\033[93m Enabled\033[0m" | sudo tee /dev/tty1
-    else
-        echo -e "\033[92mFlash Drive:\033[93m Enabled\033[0m" | sudo tee /dev/tty1
+    sudo rmmod g_mass_storage
+    FOUND=0
+    readarray -t rdirarr  < <(sudo ls /media/pwndrives)
+    for rdir in "${rdirarr[@]}"; do
+        readarray -t pdirarr  < <(sudo ls /media/pwndrives/${rdir})
+        for pdir in "${pdirarr[@]}"; do
+            if [[ ${pdir,,}  == "payloads" ]] ; then 
+                FOUND=1
+                UDEV='/dev/'${rdir}
+                break
+            fi
+        done
+        if [ "$FOUND" -ne 0 ]; then
+            break
+        fi
+    done  
+    if [[ ! -z $UDEV ]] ;then
+        sudo modprobe g_mass_storage file=$UDEV stall=0 ro=0 removable=1
     fi
-    sudo modprobe g_mass_storage file=$UDEV stall=0 ro=0 removable=1
+    echo -e "\033[92mUSB Drive:\033[93m Enabled\033[0m" | sudo tee /dev/tty1
 fi
 if [ $PPPOECONN = true ] ; then
     echo -e "\033[92mInternet Access:\033[93m Enabled\033[0m" | sudo tee /dev/tty1
@@ -102,8 +110,8 @@ if [ -f /boot/firmware/PPPwn/pwn.log ]; then
 fi
 if [[ ! $(ethtool $INTERFACE) == *"Link detected: yes"* ]]; then
     echo -e "\033[31mWaiting for link...\033[0m" | sudo tee /dev/tty1
-    while [[ ! $(ethtool $INTERFACE) == *"Link detected: yes"* ]] ; do
-
+    while [[ ! $(ethtool $INTERFACE) == *"Link detected: yes"* ]]
+    do
         coproc read -t 2 && wait "$!" || true
     done
     echo -e "\033[32mLink found!\033[0m\n" | sudo tee /dev/tty1
@@ -111,7 +119,8 @@ fi
 if [ $RESTMODE = true ] ; then
     sudo pppoe-server -I $INTERFACE -T 60 -N 1 -C PPPWN -S PPPWN -L 192.168.2.1 -R 192.168.2.2 
     coproc read -t 2 && wait "$!" || true
-    while [[ $(sudo nmap -p 3232 192.168.2.2 | grep '3232/tcp' | cut -f2 -d' ') == "" ]] ; do
+    while [[ $(sudo nmap -p 3232 192.168.2.2 | grep '3232/tcp' | cut -f2 -d' ') == "" ]]
+    do
         coproc read -t 2 && wait "$!" || true
     done
     coproc read -t 5 && wait "$!" || true
@@ -141,9 +150,7 @@ if [ $RESTMODE = true ] ; then
         echo -e "\n\033[95mGoldhen not found starting pppwn\033[0m\n" | sudo tee /dev/tty1
         sudo killall pppoe-server
         if [ $USBETHERNET = true ] ; then
-            echo '1-1' | sudo tee /sys/bus/usb/drivers/usb/unbind
-            coproc read -t 2 && wait "$!" || true
-            echo '1-1' | sudo tee /sys/bus/usb/drivers/usb/bind
+            sudo bash /boot/firmware/PPPwn/devboot.sh
             coproc read -t 3 && wait "$!" || true
             sudo ip link set $INTERFACE up
         else    
@@ -158,7 +165,8 @@ if [ "$PIIP" ]; then
     echo -e "\033[92mIP: \033[93m $PIIP\033[0m" | sudo tee /dev/tty1
 fi
 echo -e "\033[95mReady for console connection\033[0m\n" | sudo tee /dev/tty1
-while [ true ] ; do
+while [ true ]
+do
     if [ -f /boot/firmware/PPPwn/config.sh ]; then
         if  grep -Fxq "PPDBG=true" /boot/firmware/PPPwn/config.sh ; then
             PPDBG=true
@@ -166,7 +174,15 @@ while [ true ] ; do
             PPDBG=false
         fi
     fi
-    while read -r stdo ; do
+    if [[ $FIRMWAREVERSION == "10.00" ]] || [[ $FIRMWAREVERSION == "10.01" ]] ;then
+        STAGEVER="10.00"
+    elif [[ $FIRMWAREVERSION == "9.00" ]] ;then
+        STAGEVER="9.00"
+    else
+        STAGEVER="11.00"
+    fi
+    while read -r stdo
+    do
         if [ $PPDBG = true ] ; then
             echo -e $stdo | sudo tee /dev/tty1 | sudo tee /dev/pts/* | sudo tee -a /boot/firmware/PPPwn/pwn.log
         fi
@@ -199,6 +215,6 @@ while [ true ] ; do
             echo -e "\033[31m\nInterface $INTERFACE not found\033[0m\n" | sudo tee /dev/tty1
             exit 1
         fi
-    done < <(timeout $TIMEOUT sudo /boot/firmware/PPPwn/$CPPBIN --interface "$INTERFACE" --fw "${FIRMWAREVERSION//.}" --stage1 "/boot/firmware/PPPwn/stage1_$FIRMWAREVERSION.bin" --stage2 "/boot/firmware/PPPwn/stage2_$FIRMWAREVERSION.bin")
+    done < <(timeout $TIMEOUT sudo /boot/firmware/PPPwn/$CPPBIN --interface "$INTERFACE" --fw "${STAGEVER//.}" --stage1 "/boot/firmware/PPPwn/stage1_$STAGEVER.bin" --stage2 "/boot/firmware/PPPwn/stage2_$STAGEVER.bin")
     coproc read -t 1 && wait "$!" || true
 done
