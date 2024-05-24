@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ -f /boot/firmware/PPPwn/config.sh ]; then
-source /boot/firmware/PPPwn/config.sh
+    source /boot/firmware/PPPwn/config.sh
 fi
 if [ -z $INTERFACE ]; then INTERFACE="eth0"; fi
 if [ -z $FIRMWAREVERSION ]; then FIRMWAREVERSION="11.00"; fi
@@ -15,39 +15,39 @@ if [ -z $TIMEOUT ]; then TIMEOUT="5m"; fi
 if [ -z $RESTMODE ]; then RESTMODE=false; fi
 PITYP=$(tr -d '\0' </proc/device-tree/model) 
 if [[ $PITYP == *"Raspberry Pi 2"* ]] ;then
-coproc read -t 15 && wait "$!" || true
-CPPBIN="pppwn7"
-VMUSB=false
+    coproc read -t 15 && wait "$!" || true
+    CPPBIN="pppwn7"
+    VMUSB=false
 elif [[ $PITYP == *"Raspberry Pi 3"* ]] ;then
-coproc read -t 10 && wait "$!" || true
-CPPBIN="pppwn64"
-VMUSB=false
+    coproc read -t 10 && wait "$!" || true
+    CPPBIN="pppwn64"
+    VMUSB=false
 elif [[ $PITYP == *"Raspberry Pi 4"* ]] ;then
-coproc read -t 5 && wait "$!" || true
-CPPBIN="pppwn64"
+    coproc read -t 5 && wait "$!" || true
+    CPPBIN="pppwn64"
 elif [[ $PITYP == *"Raspberry Pi 5"* ]] ;then
-coproc read -t 5 && wait "$!" || true
-CPPBIN="pppwn64"
+    coproc read -t 5 && wait "$!" || true
+    CPPBIN="pppwn64"
 elif [[ $PITYP == *"Raspberry Pi Zero 2"* ]] ;then
-coproc read -t 8 && wait "$!" || true
-CPPBIN="pppwn64"
-VMUSB=false
+    coproc read -t 8 && wait "$!" || true
+    CPPBIN="pppwn64"
+    VMUSB=false
 elif [[ $PITYP == *"Raspberry Pi Zero"* ]] ;then
-coproc read -t 10 && wait "$!" || true
-CPPBIN="pppwn11"
-VMUSB=false
+    coproc read -t 10 && wait "$!" || true
+    CPPBIN="pppwn11"
+    VMUSB=false
 elif [[ $PITYP == *"Raspberry Pi"* ]] ;then
-coproc read -t 15 && wait "$!" || true
-CPPBIN="pppwn11"
-VMUSB=false
+    coproc read -t 15 && wait "$!" || true
+    CPPBIN="pppwn11"
+    VMUSB=false
 else
-coproc read -t 5 && wait "$!" || true
-CPPBIN="pppwn64"
-VMUSB=false
+    coproc read -t 5 && wait "$!" || true
+    CPPBIN="pppwn64"
+    VMUSB=false
 fi
-arch=$(getconf LONG_BIT)
+    arch=$(getconf LONG_BIT)
 if [ $arch -eq 32 ] && [ $CPPBIN = "pppwn64" ] && [[ ! $PITYP == *"Raspberry Pi 4"* ]] && [[ ! $PITYP == *"Raspberry Pi 5"* ]] ; then
-CPPBIN="pppwn7"
+    CPPBIN="pppwn7"
 fi
 echo -e "\n\n\033[36m _____  _____  _____
 |  __ \\|  __ \\|  __ \\
@@ -128,7 +128,7 @@ if [ $RESTMODE = true ] ; then
     coproc read -t 5 && wait "$!" || true
     GHT=$(sudo nmap -p 3232 192.168.2.2 | grep '3232/tcp' | cut -f2 -d' ')
     if [[ $GHT == *"open"* ]] ; then
-        echo -e "\033[95mGoldhen found aborting pppwn\033[0m\n" | sudo tee /dev/tty1
+        echo -e "\033[95mGoldhen found. Aborting pppwn...\033[0m\n" | sudo tee /dev/tty1
         sudo killall pppoe-server
         if [ $PPPOECONN = true ] ; then
             sudo systemctl start pppoe
@@ -149,7 +149,7 @@ if [ $RESTMODE = true ] ; then
         fi
         exit 0
     else
-        echo -e "\033[95mGoldhen not found starting pppwn\033[0m\n" | sudo tee /dev/tty1
+        echo -e "\033[95mGoldhen not found. Starting pppwn...\033[0m\n" | sudo tee /dev/tty1
         sudo killall pppoe-server
         if [ $USBETHERNET = true ] ; then
             echo '1-1' | sudo tee /sys/bus/usb/drivers/usb/unbind
@@ -193,6 +193,7 @@ do
         if [[ $stdo  == "[+] Done!" ]] ; then
             echo -e "\033[32m\nConsole PPPwned! \033[0m\n" | sudo tee /dev/tty1
 
+            #resetting interface after a successfull PPPwn attempt
             sudo ip link set $INTERFACE down
             coproc read -t 3 && wait "$!" || true
             sudo ip link set $INTERFACE up
