@@ -192,6 +192,11 @@ do
         fi
         if [[ $stdo  == "[+] Done!" ]] ; then
             echo -e "\033[32m\nConsole PPPwned! \033[0m\n" | sudo tee /dev/tty1
+
+            sudo ip link set $INTERFACE down
+            coproc read -t 3 && wait "$!" || true
+            sudo ip link set $INTERFACE up
+
             if [ $PPPOECONN = true ] ; then
                 sudo systemctl start pppoe
                 if [ $DTLINK = true ] ; then
